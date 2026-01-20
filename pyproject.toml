@@ -1,0 +1,10 @@
+[project]
+name = "time-tracker"
+version = "0.1.0"
+description = "Simple 1099 time tracking and invoicing"
+requires-python = ">=3.10"
+
+dependencies = []
+
+[tool.black]
+line-length = 88
