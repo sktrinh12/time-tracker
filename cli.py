@@ -90,7 +90,7 @@ def main():
         print(f"Total hours: {total:.2f}")
 
     elif args.cmd == "email-template":
-        invoice_number = next_invoice_number()
+        invoice_number = next_invoice_number() - 1
         year, month = args.month.split("-")
 
         import calendar
@@ -109,9 +109,8 @@ Best regards,
 {CONSULTANT_NAME}
         """.strip()
 
-        print("\nSubject:")
         print(subject)
-        print("\nBody:\n")
+        print()
         print(body)
 
 if __name__ == "__main__":
