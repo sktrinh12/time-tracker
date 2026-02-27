@@ -91,13 +91,15 @@ def generate_monthly_invoice(month: str):
     total_hours = 0.0
 
     for d, start, end, hours, desc in entries:
-        table_data.append([
-            Paragraph(d, table_style),
-            Paragraph(start[:5], table_style),
-            Paragraph(end[:5], table_style),
-            Paragraph(f"{hours:.2f}", table_style),
-            Paragraph(desc or "", table_style),
-        ])
+        table_data.append(
+            [
+                Paragraph(d, table_style),
+                Paragraph(start[:5], table_style),
+                Paragraph(end[:5], table_style),
+                Paragraph(f"{hours:.2f}", table_style),
+                Paragraph(desc or "", table_style),
+            ]
+        )
         total_hours += hours
 
     table = Table(
@@ -105,11 +107,16 @@ def generate_monthly_invoice(month: str):
         colWidths=[1.2 * inch, 0.8 * inch, 0.8 * inch, 0.8 * inch, 2.7 * inch],
     )
 
-    table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
 
     elements.append(table)
     elements.append(Spacer(1, 0.4 * inch))
@@ -121,10 +128,7 @@ def generate_monthly_invoice(month: str):
 
     elements.append(Paragraph(f"Hourly Rate: ${HOURLY_RATE:.2f}", normal))
     elements.append(Paragraph(f"Total Hours: {total_hours:.2f}", normal))
-    elements.append(Paragraph(
-        f"<b>Total Amount Due: ${total_amount:,.2f}</b>",
-        normal
-    ))
+    elements.append(Paragraph(f"<b>Total Amount Due: ${total_amount:,.2f}</b>", normal))
 
     elements.append(Spacer(1, 0.4 * inch))
 
