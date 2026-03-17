@@ -103,7 +103,7 @@ Hi {COMPANY_NAME},
 
 Please find attached my invoice for services rendered in {month_name} {year}.
 
-Let me know if you have any questions.
+Let me know if you have any questions. Thanks.
 
 Best regards,
 {CONSULTANT_NAME}
