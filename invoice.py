@@ -21,20 +21,43 @@ from config import (
     CONSULTANT_NAME,
     CONSULTANT_PHONE,
 )
-from db import entries_for_month, total_hours_for_month
+from db import (
+    entries_for_month,
+    total_hours_for_month,
+    entries_by_ids,
+    total_hours_for_ids,
+)
 
 
-def generate_monthly_invoice(month: str):
-    """
-    month: YYYY-MM
-    """
-    entries = entries_for_month(month)
-    if not entries:
-        raise ValueError(f"No entries found for this month - {month}")
-    total_hours = total_hours_for_month(month)
+def generate_invoice(
+    month: str | None = None,
+    ids: list[int] | None = None,
+):
+    if month and ids:
+        raise ValueError("Cannot specify both --month and --ids")
+    if not month and not ids:
+        raise ValueError("Must specify either --month or --ids")
+
+    if ids:
+        entries = entries_by_ids(ids)
+        if not entries:
+            raise ValueError(f"No entries found for IDs: {ids}")
+        total_hours = total_hours_for_ids(ids)
+        billing_period = f"IDs: {','.join(map(str, ids))}"
+    else:
+        assert month is not None
+        entries = entries_for_month(month)
+        if not entries:
+            raise ValueError(f"No entries found for this month - {month}")
+        total_hours = total_hours_for_month(month)
+        billing_period = month
 
     invoice_number = next_invoice_number()
-    filename = f"Invoice_{invoice_number:03}_{month}.pdf"
+
+    if ids:
+        filename = f"Invoice_{invoice_number:03}_custom.pdf"
+    else:
+        filename = f"Invoice_{invoice_number:03}_{month}.pdf"
     path = INVOICE_DIR / filename
 
     total_amount = total_hours * HOURLY_RATE
@@ -61,7 +84,8 @@ def generate_monthly_invoice(month: str):
 
     elements.append(Paragraph(f"Invoice #: {invoice_number:03}", normal))
     elements.append(Paragraph(f"Invoice Date: {today}", normal))
-    elements.append(Paragraph(f"Billing Month: {month}", normal))
+    if not ids:
+        elements.append(Paragraph(f"Billing Period: {billing_period}", normal))
     elements.append(Spacer(1, 0.25 * inch))
 
     # ----------------------------
@@ -90,7 +114,7 @@ def generate_monthly_invoice(month: str):
 
     total_hours = 0.0
 
-    for d, start, end, hours, desc in entries:
+    for entry_id, d, start, end, hours, category, desc in entries:
         table_data.append(
             [
                 Paragraph(d, table_style),
