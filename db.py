@@ -100,3 +100,38 @@ def total_hours_for_ids(ids: list[int]) -> float:
             ids,
         )
         return cur.fetchone()[0]
+
+
+def entries_for_month_excluding_ids(month: str, exclude_ids: list[int]):
+    if not exclude_ids:
+        return entries_for_month(month)
+    placeholders = ",".join("?" * len(exclude_ids))
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"""
+            SELECT id, work_date, start_time, end_time, hours, category, description
+            FROM time_entries
+            WHERE strftime('%Y-%m', work_date) = ?
+            AND id NOT IN ({placeholders})
+            ORDER BY work_date, start_time
+            """,
+            (month, *exclude_ids),
+        )
+        return cur.fetchall()
+
+
+def total_hours_for_month_excluding_ids(month: str, exclude_ids: list[int]) -> float:
+    if not exclude_ids:
+        return total_hours_for_month(month)
+    placeholders = ",".join("?" * len(exclude_ids))
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"""
+            SELECT COALESCE(SUM(hours), 0)
+            FROM time_entries
+            WHERE strftime('%Y-%m', work_date) = ?
+            AND id NOT IN ({placeholders})
+            """,
+            (month, *exclude_ids),
+        )
+        return cur.fetchone()[0]

@@ -26,19 +26,27 @@ from db import (
     total_hours_for_month,
     entries_by_ids,
     total_hours_for_ids,
+    entries_for_month_excluding_ids,
+    total_hours_for_month_excluding_ids,
 )
 
 
 def generate_invoice(
     month: str | None = None,
     ids: list[int] | None = None,
+    excluded_ids: list[int] | None = None,
+    comment: str | None = None,
 ):
-    if month and ids:
-        raise ValueError("Cannot specify both --month and --ids")
     if not month and not ids:
         raise ValueError("Must specify either --month or --ids")
 
-    if ids:
+    if excluded_ids:
+        entries = entries_for_month_excluding_ids(month, excluded_ids)
+        if not entries:
+            raise ValueError(f"No entries found for this month - {month}")
+        total_hours = total_hours_for_month_excluding_ids(month, excluded_ids)
+        billing_period = month
+    elif ids:
         entries = entries_by_ids(ids)
         if not entries:
             raise ValueError(f"No entries found for IDs: {ids}")
@@ -84,7 +92,9 @@ def generate_invoice(
 
     elements.append(Paragraph(f"Invoice #: {invoice_number:03}", normal))
     elements.append(Paragraph(f"Invoice Date: {today}", normal))
-    if not ids:
+    if ids and comment:
+        elements.append(Paragraph(f"{comment}", normal))
+    elif month:
         elements.append(Paragraph(f"Billing Period: {billing_period}", normal))
     elements.append(Spacer(1, 0.25 * inch))
 

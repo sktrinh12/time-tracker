@@ -35,6 +35,7 @@ def main():
     inv = sub.add_parser("invoice")
     inv.add_argument("--month", help="YYYY-MM")
     inv.add_argument("--ids", help="Comma-separated entry IDs (e.g., 1,2,3)")
+    inv.add_argument("--comment", help="Custom comment for custom invoices")
 
     review = sub.add_parser("review")
     review.add_argument("--month", required=True, help="YYYY-MM")
@@ -71,17 +72,21 @@ def main():
     elif args.cmd == "invoice":
         if not args.month and not args.ids:
             parser.error("Must specify either --month or --ids")
-        if args.month and args.ids:
-            parser.error("Cannot specify both --month and --ids")
 
         ids = None
+        excluded_ids = None
         if args.ids:
             try:
                 ids = [int(x.strip()) for x in args.ids.split(",")]
             except ValueError:
                 parser.error("--ids must be comma-separated integers")
+            if args.month:
+                excluded_ids = ids
+                ids = None
 
-        path = generate_invoice(month=args.month, ids=ids)
+        path = generate_invoice(
+            month=args.month, ids=ids, excluded_ids=excluded_ids, comment=args.comment
+        )
         print(f"✓ Invoice generated: {path}")
 
     elif args.cmd == "review":
