@@ -28,21 +28,33 @@ def main():
     log.add_argument("--date", help="YYYY-MM-DD (defaults to today)")
     log.add_argument("--start", required=True, help="HH:MM")
     log.add_argument("--end", required=True, help="HH:MM")
+    log.add_argument(
+        "--client", default="preludetx", help="Client ID (default: preludetx)"
+    )
     log.add_argument("--category", default="")
     log.add_argument("--desc", default="")
 
     # ---- invoice ----
     inv = sub.add_parser("invoice")
     inv.add_argument("--month", help="YYYY-MM")
+    inv.add_argument(
+        "--client", default="preludetx", help="Client ID (default: preludetx)"
+    )
     inv.add_argument("--ids", help="Comma-separated entry IDs (e.g., 1,2,3)")
     inv.add_argument("--comment", help="Custom comment for custom invoices")
 
     review = sub.add_parser("review")
     review.add_argument("--month", required=True, help="YYYY-MM")
+    review.add_argument(
+        "--client", default="preludetx", help="Client ID (default: preludetx)"
+    )
     review.add_argument("--show-ids", action="store_true", help="Show entry IDs")
 
     email = sub.add_parser("email-template")
     email.add_argument("--month", required=True, help="YYYY-MM")
+    email.add_argument(
+        "--client", default="preludetx", help="Client ID (default: preludetx)"
+    )
 
     args = parser.parse_args()
 
@@ -58,6 +70,7 @@ def main():
             start_time=start,
             end_time=end,
             hours=hours,
+            client=args.client,
             category=args.category,
             description=args.desc,
         )
@@ -85,31 +98,61 @@ def main():
                 ids = None
 
         path = generate_invoice(
-            month=args.month, ids=ids, excluded_ids=excluded_ids, comment=args.comment
+            month=args.month,
+            ids=ids,
+            excluded_ids=excluded_ids,
+            comment=args.comment,
+            client=args.client,
         )
         print(f"✓ Invoice generated: {path}")
 
     elif args.cmd == "review":
-        rows = entries_for_month(args.month)
-        total = total_hours_for_month(args.month)
+        rows = entries_for_month(args.month, args.client)
+        total = total_hours_for_month(args.month, args.client)
+
+        from colorama import init, Fore, Style
+
+        init(autoreset=True)  # resets style after each print
+
+        # ... inside elif args.cmd == "review":
+        rows = entries_for_month(args.month, args.client)
+        total = total_hours_for_month(args.month, args.client)
+
+        # Colour definitions
+        HEADER = Fore.CYAN + Style.BRIGHT
+        TOTAL_COLOR = Fore.YELLOW + Style.BRIGHT
+        ROW_COLOR = Fore.WHITE
+        ALT_ROW = Fore.LIGHTBLACK_EX
 
         if args.show_ids:
-            print("ID   Date        Start   End     Hours   Description")
+            print(
+                HEADER
+                + f"{'ID':<4} {'Date':<12} {'Start':<8} {'End':<8} {'Hours':>6}   Description"
+            )
             print("-" * 70)
-            for entry_id, d, s, e, h, category, desc in rows:
+            for i, (entry_id, d, s, e, h, client, category, desc) in enumerate(rows):
+                color = ROW_COLOR if i % 2 == 0 else ALT_ROW
                 print(
-                    f"{entry_id:2}  {d}  {s[:5]}   {e[:5]}   {h:>5.2f}   {desc or ''}"
+                    color
+                    + f"{entry_id:<4} {d:<12} {s[:5]:<8} {e[:5]:<8} {h:>6.2f}   {desc or ''}"
                 )
         else:
-            print("Date        Start   End     Hours   Description")
+            print(
+                HEADER
+                + f"{'Date':<12} {'Start':<8} {'End':<8} {'Hours':>6}   Description"
+            )
             print("-" * 60)
-            for entry_id, d, s, e, h, category, desc in rows:
-                print(f"{d}  {s[:5]}   {e[:5]}   {h:>5.2f}   {desc or ''}")
+            for i, (entry_id, d, s, e, h, client, category, desc) in enumerate(rows):
+                color = ROW_COLOR if i % 2 == 0 else ALT_ROW
+                print(color + f"{d:<12} {s[:5]:<8} {e[:5]:<8} {h:>6.2f}   {desc or ''}")
 
         print("-" * 60)
-        print(f"Total hours: {total:.2f}")
+        print(TOTAL_COLOR + f"Total hours: {total:.2f}")
 
     elif args.cmd == "email-template":
+        from config import get_client
+
+        client_info = get_client(args.client)
         invoice_number = next_invoice_number() - 1
         year, month = args.month.split("-")
 
@@ -120,7 +163,7 @@ def main():
         subject = f"Invoice No. {invoice_number:03} – {month_name} {year}"
 
         body = f"""
-Hi {COMPANY_NAME},
+Hi {client_info["name"]},
 
 Please find attached my invoice for services rendered in {month_name} {year}.
 
