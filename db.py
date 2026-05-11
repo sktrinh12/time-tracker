@@ -16,6 +16,7 @@ def init_db():
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
             hours REAL NOT NULL,
+            client TEXT NOT NULL,
             category TEXT,
             description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -28,44 +29,52 @@ def insert_entry(entry: TimeEntry):
         conn.execute(
             """
             INSERT INTO time_entries
-            (work_date, start_time, end_time, hours, category, description)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (work_date, start_time, end_time, hours, client, category, description)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 entry.work_date.isoformat(),
                 entry.start_time.isoformat(),
                 entry.end_time.isoformat(),
                 entry.hours,
+                entry.client,
                 entry.category,
                 entry.description,
             ),
         )
 
 
-def entries_for_month(month: str):
+def entries_for_month(month: str, client: str = None):
     with get_conn() as conn:
-        cur = conn.execute(
-            """
-            SELECT id, work_date, start_time, end_time, hours, category, description
+        query = """
+            SELECT id, work_date, start_time, end_time, hours, client, category, description
             FROM time_entries
             WHERE strftime('%Y-%m', work_date) = ?
-            ORDER BY work_date, start_time
-            """,
-            (month,),
-        )
+        """
+        params = [month]
+        if client:
+            query += " AND client = ?"
+            params.append(client)
+
+        query += " ORDER BY work_date, start_time"
+
+        cur = conn.execute(query, params)
         return cur.fetchall()
 
 
-def total_hours_for_month(month: str) -> float:
+def total_hours_for_month(month: str, client: str = None) -> float:
     with get_conn() as conn:
-        cur = conn.execute(
-            """
+        query = """
             SELECT COALESCE(SUM(hours), 0)
             FROM time_entries
             WHERE strftime('%Y-%m', work_date) = ?
-            """,
-            (month,),
-        )
+        """
+        params = [month]
+        if client:
+            query += " AND client = ?"
+            params.append(client)
+
+        cur = conn.execute(query, params)
         return cur.fetchone()[0]
 
 
@@ -76,7 +85,7 @@ def entries_by_ids(ids: list[int]):
     with get_conn() as conn:
         cur = conn.execute(
             f"""
-            SELECT id, work_date, start_time, end_time, hours, category, description
+            SELECT id, work_date, start_time, end_time, hours, client, category, description
             FROM time_entries
             WHERE id IN ({placeholders})
             ORDER BY work_date, start_time
@@ -102,36 +111,47 @@ def total_hours_for_ids(ids: list[int]) -> float:
         return cur.fetchone()[0]
 
 
-def entries_for_month_excluding_ids(month: str, exclude_ids: list[int]):
+def entries_for_month_excluding_ids(
+    month: str, exclude_ids: list[int], client: str = None
+):
     if not exclude_ids:
-        return entries_for_month(month)
+        return entries_for_month(month, client)
     placeholders = ",".join("?" * len(exclude_ids))
     with get_conn() as conn:
-        cur = conn.execute(
-            f"""
-            SELECT id, work_date, start_time, end_time, hours, category, description
+        query = f"""
+            SELECT id, work_date, start_time, end_time, hours, client, category, description
             FROM time_entries
             WHERE strftime('%Y-%m', work_date) = ?
             AND id NOT IN ({placeholders})
-            ORDER BY work_date, start_time
-            """,
-            (month, *exclude_ids),
-        )
+        """
+        params = [month] + exclude_ids
+        if client:
+            query += " AND client = ?"
+            params.append(client)
+
+        query += " ORDER BY work_date, start_time"
+
+        cur = conn.execute(query, params)
         return cur.fetchall()
 
 
-def total_hours_for_month_excluding_ids(month: str, exclude_ids: list[int]) -> float:
+def total_hours_for_month_excluding_ids(
+    month: str, exclude_ids: list[int], client: str = None
+) -> float:
     if not exclude_ids:
-        return total_hours_for_month(month)
+        return total_hours_for_month(month, client)
     placeholders = ",".join("?" * len(exclude_ids))
     with get_conn() as conn:
-        cur = conn.execute(
-            f"""
+        query = f"""
             SELECT COALESCE(SUM(hours), 0)
             FROM time_entries
             WHERE strftime('%Y-%m', work_date) = ?
             AND id NOT IN ({placeholders})
-            """,
-            (month, *exclude_ids),
-        )
+        """
+        params = [month] + exclude_ids
+        if client:
+            query += " AND client = ?"
+            params.append(client)
+
+        cur = conn.execute(query, params)
         return cur.fetchone()[0]
