@@ -12,10 +12,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from config import (
     INVOICE_DIR,
-    HOURLY_RATE,
-    COMPANY_NAME,
-    COMPANY_EMAIL,
-    COMPANY_ADDR,
+    get_client,
     CONSULTANT_ADDR,
     CONSULTANT_EMAIL,
     CONSULTANT_NAME,
@@ -36,15 +33,16 @@ def generate_invoice(
     ids: list[int] | None = None,
     excluded_ids: list[int] | None = None,
     comment: str | None = None,
+    client: str = "preludetx",
 ):
     if not month and not ids:
         raise ValueError("Must specify either --month or --ids")
 
     if excluded_ids:
-        entries = entries_for_month_excluding_ids(month, excluded_ids)
+        entries = entries_for_month_excluding_ids(month, excluded_ids, client)
         if not entries:
             raise ValueError(f"No entries found for this month - {month}")
-        total_hours = total_hours_for_month_excluding_ids(month, excluded_ids)
+        total_hours = total_hours_for_month_excluding_ids(month, excluded_ids, client)
         billing_period = month
     elif ids:
         entries = entries_by_ids(ids)
@@ -54,21 +52,25 @@ def generate_invoice(
         billing_period = f"IDs: {','.join(map(str, ids))}"
     else:
         assert month is not None
-        entries = entries_for_month(month)
+        entries = entries_for_month(month, client)
         if not entries:
             raise ValueError(f"No entries found for this month - {month}")
-        total_hours = total_hours_for_month(month)
+        total_hours = total_hours_for_month(month, client)
         billing_period = month
 
-    invoice_number = next_invoice_number()
+    invoice_number = next_invoice_number(client)
+
+    client_dir = INVOICE_DIR / client
+    client_dir.mkdir(exist_ok=True)
 
     if ids:
         filename = f"Invoice_{invoice_number:03}_custom.pdf"
     else:
         filename = f"Invoice_{invoice_number:03}_{month}.pdf"
-    path = INVOICE_DIR / filename
+    path = client_dir / filename
 
-    total_amount = total_hours * HOURLY_RATE
+    client_info = get_client(client)
+    total_amount = total_hours * client_info["rate"]
     today = datetime.today().date().isoformat()
 
     doc = SimpleDocTemplate(str(path), pagesize=letter)
@@ -102,9 +104,9 @@ def generate_invoice(
     # Company Info
     # ----------------------------
     elements.append(Paragraph("<b>Bill To:</b>", bold))
-    elements.append(Paragraph(COMPANY_NAME, normal))
-    elements.append(Paragraph(COMPANY_ADDR, normal))
-    elements.append(Paragraph(COMPANY_EMAIL, normal))
+    elements.append(Paragraph(client_info["name"], normal))
+    elements.append(Paragraph(client_info["addr"], normal))
+    elements.append(Paragraph(client_info["email"], normal))
     elements.append(Spacer(1, 0.3 * inch))
 
     # ----------------------------
@@ -124,7 +126,7 @@ def generate_invoice(
 
     total_hours = 0.0
 
-    for entry_id, d, start, end, hours, category, desc in entries:
+    for entry_id, d, start, end, hours, client_id, category, desc in entries:
         table_data.append(
             [
                 Paragraph(d, table_style),
@@ -158,9 +160,9 @@ def generate_invoice(
     # ----------------------------
     # Totals
     # ----------------------------
-    total_amount = total_hours * HOURLY_RATE
+    total_amount = total_hours * client_info["rate"]
 
-    elements.append(Paragraph(f"Hourly Rate: ${HOURLY_RATE:.2f}", normal))
+    elements.append(Paragraph(f"Hourly Rate: ${client_info['rate']:.2f}", normal))
     elements.append(Paragraph(f"Total Hours: {total_hours:.2f}", normal))
     elements.append(Paragraph(f"<b>Total Amount Due: ${total_amount:,.2f}</b>", normal))
 
@@ -172,6 +174,9 @@ def generate_invoice(
     return path
 
 
-def next_invoice_number():
-    existing = sorted(INVOICE_DIR.glob("Invoice_*"))
+def next_invoice_number(client: str):
+    client_dir = INVOICE_DIR / client
+    if not client_dir.exists():
+        return 1
+    existing = sorted(client_dir.glob("Invoice_*"))
     return len(existing) + 1
