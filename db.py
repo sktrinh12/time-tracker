@@ -47,7 +47,7 @@ def insert_entry(entry: TimeEntry):
 def entries_for_month(month: str, client: str = None):
     with get_conn() as conn:
         query = """
-            SELECT id, work_date, start_time, end_time, hours, client, category, description
+            SELECT id, work_date, start_time, end_time, hours, client, description
             FROM time_entries
             WHERE strftime('%Y-%m', work_date) = ?
         """
@@ -77,6 +77,32 @@ def total_hours_for_month(month: str, client: str = None) -> float:
         cur = conn.execute(query, params)
         return cur.fetchone()[0]
 
+def entries_for_client(client: str):
+    with get_conn() as conn:
+        query = """
+            SELECT id, work_date, start_time, end_time, hours, client, description
+            FROM time_entries
+            WHERE client = ?
+        """
+        params = [client]
+        query += " ORDER BY work_date, start_time"
+
+        cur = conn.execute(query, params)
+        return cur.fetchall()
+
+
+def total_hours_for_client(client: str) -> float:
+    with get_conn() as conn:
+        query = """
+            SELECT COALESCE(SUM(hours), 0)
+            FROM time_entries
+            WHERE client = ?
+        """
+        params = [client]
+
+        cur = conn.execute(query, params)
+        return cur.fetchone()[0]
+
 
 def entries_by_ids(ids: list[int]):
     if not ids:
@@ -85,7 +111,7 @@ def entries_by_ids(ids: list[int]):
     with get_conn() as conn:
         cur = conn.execute(
             f"""
-            SELECT id, work_date, start_time, end_time, hours, client, category, description
+            SELECT id, work_date, start_time, end_time, hours, client, description
             FROM time_entries
             WHERE id IN ({placeholders})
             ORDER BY work_date, start_time
@@ -119,7 +145,7 @@ def entries_for_month_excluding_ids(
     placeholders = ",".join("?" * len(exclude_ids))
     with get_conn() as conn:
         query = f"""
-            SELECT id, work_date, start_time, end_time, hours, client, category, description
+            SELECT id, work_date, start_time, end_time, hours, client, description
             FROM time_entries
             WHERE strftime('%Y-%m', work_date) = ?
             AND id NOT IN ({placeholders})
