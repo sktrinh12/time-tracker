@@ -126,7 +126,7 @@ def generate_invoice(
 
     total_hours = 0.0
 
-    for entry_id, d, start, end, hours, client_id, category, desc in entries:
+    for entry_id, d, start, end, hours, client_id, desc in entries:
         table_data.append(
             [
                 Paragraph(d, table_style),
