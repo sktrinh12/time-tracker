@@ -194,7 +194,7 @@ def main():
         from config import get_client
 
         client_info = get_client(args.client)
-        invoice_number = next_invoice_number() - 1
+        invoice_number = next_invoice_number(args.client) - 1
         year, month = args.month.split("-")
 
         import calendar
