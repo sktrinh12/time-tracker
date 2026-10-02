@@ -45,7 +45,7 @@ def main():
     inv.add_argument(
         "--client", default="preludetx", help="Client ID (default: preludetx)"
     )
-    inv.add_argument("--ids", help="Comma-separated entry IDs (e.g., 1,2,3)")
+    inv.add_argument("--ids", help="Comma-separated entry IDs (e.g., 1,2,3) that pertain to a particular exp to invoice separately. Include the --month argument if excluding the ids for that particular month.")
     inv.add_argument("--comment", help="Custom comment for custom invoices")
 
     review = sub.add_parser("review")
