@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
-from db import init_db, insert_entry, entries_for_month, total_hours_for_month, entries_for_client, total_hours_for_client
+from db import init_db, insert_entry, entries_for_month, total_hours_for_month, entries_for_client, total_hours_for_client, entries_by_ids, total_hours_for_ids
 from models import TimeEntry
 from invoice import generate_invoice, next_invoice_number
 from config import CONSULTANT_NAME, COMPANY_NAME
@@ -55,6 +55,8 @@ def main():
     )
     review.add_argument("--show-ids", action="store_true", help="Show entry IDs")
     review.add_argument("--markdown", help="Export to a markdown file (e.g. review.md)")
+
+    review.add_argument("--ids", help="Comma-separated entry IDs (e.g., 1,2,3) to review")
 
     email = sub.add_parser("email-template")
     email.add_argument("--month", required=True, help="YYYY-MM")
@@ -113,16 +115,27 @@ def main():
         print(f"✓ Invoice generated: {path}")
 
     elif args.cmd == "review":
-        if args.markdown:
-            # Default client for markdown is parabilis, and month is not required
-            client = "parabilis" if args.client == "preludetx" else args.client
-            rows = entries_for_client(client)
-            total = total_hours_for_client(client)
+        if args.ids:
+            try:
+                ids_to_review = [int(x.strip()) for x in args.ids.split(",")]
+            except ValueError:
+                parser.error("--ids must be comma-separated integers")
+            rows = entries_by_ids(ids_to_review)
+            total = total_hours_for_ids(ids_to_review)
+            if not rows:
+                print("No entries found for the specified IDs.")
+                return
+            # Automatically show IDs when reviewing specific ID lists unless explicitly turned off
+            show_ids = True
+        elif args.markdown:
+            rows = entries_for_client(args.client)
+            total = total_hours_for_client(args.client)
         else:
             if not args.month:
                 parser.error("Must specify --month for standard review")
             rows = entries_for_month(args.month, args.client)
             total = total_hours_for_month(args.month, args.client)
+            show_ids = args.show_ids
 
         if args.markdown:
             headers = ["ID", "Date", "Start", "End", "Hours", "Description"] if args.show_ids else ["Date", "Start", "End", "Hours", "Description"]
